@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<body style="margin:0;background:#f1f5f9;font-family:'Segoe UI',sans-serif;">
+
+<canvas id="c" width="1160" height="800"></canvas>
+
+<script>
+(function(){
+  const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+  const W=1160, H=800;
+
+  const BARISTA = 3;
+  let LAJU      = 110;  
+  const DX=550, OY=520;
+
+  const P1    ={x:275,y:60};
+  const TG1   ={x:80, y:640,w:320,h:42};
+  const TG2   ={x:668,y:72,w:292,h:42};
+  const P2    ={x:660,y:515};
+  const PMBX  = 550+260;
+
+  const KSR  = {x:360, y:180, w:72, h:164};
+  const PKUP = {x:360, y:350, w:72, h:36};
+
+  // KOORDINAT MEJA
+  const POS_L1=[
+    {x:80,  y:100}, {x:148, y:100}, {x:216, y:100},
+    {x:360, y:100}, {x:430, y:100},
+    {x:80,  y:175}, {x:148, y:175},
+    {x:80,  y:245},
+    {x:80,  y:315},
+    {x:80,  y:385},
+    {x:80,  y:455},
+    {x:80,  y:525},
+    {x:360, y:430}, {x:430, y:430},
+    {x:360, y:500}, {x:430, y:500},
+    {x:430, y:640},
+    {x:80,  y:595}, {x:150, y:595}, {x:220, y:595}, {x:290, y:595}, {x:360, y:595},
+  ];
+
+  const POS_L2=[
+    {x:590, y:80},
+    {x:590, y:150},
+    {x:590, y:220, dir:'h'}, {x:590, y:260, dir:'h'},
+    {x:590, y:320, dir:'h'}, {x:590, y:360, dir:'h'}, 
+    {x:590, y:420, dir:'h'}, {x:590, y:460, dir:'h'},
+    {x:740, y:240, dir:'4'}, 
+    {x:740, y:340, dir:'4'},
+    {x:740, y:440, dir:'4'},
+    {x:850, y:240, dir:'h'}, {x:850, y:280, dir: 'h'},
+    {x:850, y:380, dir:'h'}, {x:850, y:420, dir:'h'}, 
+    {x:980,y:150, dir:'h'},
+    {x:980, y:220, dir:'h'}, {x:980, y:260, dir:'h'},
+    {x:980, y:330, dir:'h'}, {x:980, y:370, dir:'h'},
+    {x:980, y:440, dir:'h'},
+    //outdoor
+    {x:590, y:540, dir:'h'}, {x:590, y:580, dir:'h'},
+    {x:740, y:540, dir:'h'}, {x:740, y:580, dir:'h'},
+    {x:865, y:540, dir:'h'}, {x:865, y:580, dir:'h'},
+    {x:980, y:540, dir:'h'}, {x:980, y:580, dir:'h'},
+    {x:590, y:640, dir:'h'}, {x:590, y:680, dir:'h'},
+    {x:740, y:640, dir:'h'}, {x:740, y:680, dir:'h'},
+    {x:865, y:640, dir:'h'}, {x:865, y:680, dir:'h'},
+    {x:980, y:640, dir:'h'}, {x:980, y:680, dir:'h'}
+  ];
+
+  function buildTables(){
+    const tables = [];
+    let tid = 1;
+
+    POS_L1.forEach(p => {
+      tables.push({
+        id: tid, floor: 1, ref: p,
+        seats: [
+          { x: p.x - 9, y: p.y + 15, taken: false },
+          { x: p.x + 38, y: p.y + 15, taken: false }
+        ]
+      });
+      tid++;
+    });
+
+    POS_L2.forEach((p, i) => {
+      let sArr = [];
+      if(p.dir === '4'){
+        sArr = [
+          { x: p.x + 15, y: p.y - 11, taken: false },
+          { x: p.x + 15, y: p.y + 40, taken: false },
+          { x: p.x - 11, y: p.y + 15, taken: false },
+          { x: p.x + 40, y: p.y + 15, taken: false }
+        ];
+      } else if(p.dir === 'h'){
+        sArr = [
+          { x: p.x - 11, y: p.y + 15, taken: false },
+          { x: p.x + 40, y: p.y + 15, taken: false }
+        ];
+      } else {
+        sArr = [
+          { x: p.x + 15, y: p.y - 11, taken: false },
+          { x: p.x + 15, y: p.y + 40, taken: false }
+        ];
+      }
+      tables.push({ id: tid, floor: 2, ref: p, seats: sArr });
+      tid++;
+    });
+    return tables;
+  }
+
+  let allTables = buildTables();
+
+  let customers=[], kasirQ=[], pickupQ=[], nextId=0, spawnT=LAJU;
+  let lossCustomer = 0;
+
+  class Cust{
+    constructor(id){
+      this.id=id;
+      this.timer=0; this.spd=4.5;
+      this.x=P1.x+26; this.y=P1.y+14;
+      this.assignedSeat=null;
+
+      const rand = Math.random();
+      // KEMBALIKAN LOGIKA: 25% KEDATANGAN ADALAH DRIVER (D)
+      if(rand < 0.25) { 
+        this.g = 'D';
+        this.col = '#22c55e';
+        this.st = 'TO_PICKUP';
+        pickupQ.push(this);
+      } else {
+        this.g = rand < 0.625 ? 'M' : 'F';
+        this.col = this.g === 'M' ? '#3b82f6' : '#ec4899';
+        
+        // Pengecekan meja utuh di awal pintu masuk (Semua meja otomatis dicek)
+        const adaMejaKosong = allTables.some(t => t.seats.every(s => !s.taken));
+
+        if (adaMejaKosong) {
+          this.st = 'TO_KASIR';
+          kasirQ.push(this);
+        } else {
+          this.st = 'SCOUT_GO_UP'; 
+          lossCustomer++;
+        }
+      }
+    }
+
+    mv(tx,ty){
+      const dx=tx-this.x,dy=ty-this.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<this.spd){this.x=tx;this.y=ty;return true;}
+      this.x+=dx/d*this.spd; this.y+=dy/d*this.spd; return false;
+    }
+
+    upd(){
+      const qi=kasirQ.indexOf(this);
+      
+      // ALUR PATROLI/SCOUTING JIKA MEJA PENUH (NAIK KE LANTAI 2)
+      if(this.st === 'SCOUT_GO_UP') {
+        if (this.mv(TG1.x + 300, TG1.y + 21)) {
+          this.x = TG2.x + 30; this.y = TG2.y + 21;
+          this.st = 'SCOUTING';
+          this.timer = 100; 
+        }
+      }
+      else if(this.st === 'SCOUTING') {
+        if (this.mv(750, 200)) {
+          if (--this.timer <= 0) {
+            this.st = 'SCOUT_GO_DOWN';
+          }
+        }
+      }
+      else if(this.st === 'SCOUT_GO_DOWN') {
+        if (this.mv(TG2.x + 30, TG2.y + 21)) {
+          this.x = TG1.x + 300; this.y = TG1.y + 21;
+          this.st = 'SCOUT_LEAVE';
+        }
+      }
+      else if(this.st === 'SCOUT_LEAVE') {
+        if (this.mv(P1.x + 26, P1.y + 40)) {
+          this.st = 'LEAVE';
+        }
+      }
+
+      // Alur operasional kafe normal
+      else if(this.st==='TO_KASIR'){
+        if(qi>=0){
+          const col=qi%BARISTA,row=Math.floor(qi/BARISTA);
+          if(this.mv(KSR.x-40-row*27,KSR.y+22+col*33)&&row===0) this.st='AT_KASIR';
+        }
+      }
+      else if(this.st==='AT_KASIR'){
+        if(Math.random()<0.022){
+          kasirQ.splice(kasirQ.indexOf(this),1);
+          pickupQ.push(this); this.st = 'TO_PICKUP';
+        }
+      }
+      else if(this.st==='TO_PICKUP'){
+        const pi=pickupQ.indexOf(this);
+        const sampai = this.mv(PKUP.x-30-pi*22, PKUP.y+19);
+        
+        if(pi===0 && sampai && Math.random()<0.028){
+          pickupQ.splice(0,1);
+          
+          if(this.g === 'D') {
+            this.st = 'LEAVE'; // Driver langsung pulang bawa pesanan
+          } else {
+            const mejaKosongMelompong = allTables.filter(t => t.seats.every(s => !s.taken));
+
+            if(mejaKosongMelompong.length > 0){
+              const mejaTerpilih = mejaKosongMelompong[Math.floor(Math.random()*mejaKosongMelompong.length)];
+              const kursiKosong = mejaTerpilih.seats.find(s => !s.taken);
+              
+              kursiKosong.taken = true;
+              kursiKosong.customer = this;
+              this.assignedSeat = kursiKosong;
+              
+              this.timer = Math.floor(Math.random()*360)+240;
+              this.st = mejaTerpilih.floor===1 ? 'TO_S1':'UP_STAIR';
+            } else {
+              this.st = 'LEAVE';
+            }
+          }
+        }
+      }
+      else if(this.st==='TO_S1'){ if(this.mv(this.assignedSeat.x,this.assignedSeat.y)) this.st='SIT'; }
+      else if(this.st==='UP_STAIR'){
+        if(this.mv(TG1.x+300,TG1.y+21)){
+          this.x=TG2.x+30; this.y=TG2.y+21;
+          const mInduk = allTables.find(t => t.seats.includes(this.assignedSeat));
+          if(mInduk && mInduk.ref.y >= 520) {
+            this.st='TO_P2_IN';
+          } else {
+            this.st='TO_S2';
+          }
+        }
+      }
+      else if(this.st==='TO_P2_IN'){
+        if(this.mv(P2.x+24, P2.y)){ 
+          this.st='TO_S2';
+        }
+      }
+      else if(this.st==='TO_S2'){ if(this.mv(this.assignedSeat.x,this.assignedSeat.y)) this.st='SIT'; }
+      else if(this.st==='SIT'){
+        if(--this.timer<=0) {
+          const mInduk = allTables.find(t => t.seats.includes(this.assignedSeat));
+          this.st = (mInduk && mInduk.floor===1) ? 'LEAVE':'LEAVE_OUTDOOR_CHECK';
+        }
+      }
+      else if(this.st==='LEAVE_OUTDOOR_CHECK'){
+        const mInduk = allTables.find(t => t.seats.includes(this.assignedSeat));
+        if(mInduk && mInduk.ref.y >= 520) {
+          this.st='TO_P2_OUT';
+        } else {
+          this.st='DN_STAIR';
+        }
+      }
+      else if(this.st==='TO_P2_OUT'){
+        if(this.mv(P2.x+24, P2.y)){
+          this.st='DN_STAIR';
+        }
+      }
+      else if(this.st==='DN_STAIR'){
+        if(this.assignedSeat){this.assignedSeat.taken=false; this.assignedSeat=null;}
+        if(this.mv(TG2.x+30,TG2.y+21)){ 
+          this.x=TG1.x+300; this.y=TG1.y+21;
+          this.st='LEAVE';
+        }
+      }
+      else if(this.st==='LEAVE'){
+        if(this.assignedSeat){this.assignedSeat.taken=false; this.assignedSeat=null;}
+        return this.mv(P1.x+26,P1.y-20);
+      }
+      return false;
+    }
+
+    draw(){
+      ctx.beginPath(); ctx.arc(this.x+1,this.y+2,10,0,Math.PI*2);
+      ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fill();
+
+      let radius = 10;
+      if (this.st === 'SCOUTING' && this.timer < 100) {
+        radius = 10 + Math.sin(this.timer * 0.35) * 1.5;
+      }
+
+      ctx.beginPath(); ctx.arc(this.x,this.y,radius,0,Math.PI*2);
+      ctx.fillStyle=this.col; ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+      
+      ctx.fillStyle='#fff'; ctx.font='bold 9px Segoe UI';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(this.g,this.x,this.y); ctx.textBaseline='alphabetic';
+
+      if (this.st === 'SCOUTING' && this.timer < 100) {
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 15px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText('❓', this.x, this.y - radius - 8 + Math.sin(this.timer * 0.35) * 2);
+        
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 9px Segoe UI';
+        ctx.fillText('Cek Lt 2...', this.x, this.y - radius - 24);
+      }
+    }
+  }
+
+  function drawBG(){
+    ctx.fillStyle='#f8fafc'; ctx.fillRect(0,0,DX,H);
+    ctx.fillStyle='#fafaf8'; ctx.fillRect(DX,0,W-DX,H);
+    ctx.fillStyle='#f0fdf4'; ctx.fillRect(DX,OY,W-DX,H-OY);
+
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=3; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(DX,0); ctx.lineTo(DX,H); ctx.stroke();
+
+    ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1.5; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(PMBX,190); ctx.lineTo(PMBX,OY-10); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle='#0f172a'; ctx.font='bold 14px Segoe UI'; ctx.textAlign='left';
+    ctx.fillText('FLOOR 1',16,20);
+    ctx.fillText('FLOOR 2',DX+16,20);
+
+    ctx.fillStyle='#475569'; ctx.fillRect(P1.x,P1.y,52,11);
+    ctx.fillStyle='#0f172a'; ctx.font='10px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('DOOR',P1.x+26,P1.y-4);
+
+    ctx.fillStyle='#fef2f2'; ctx.strokeStyle='#fca5a5'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(KSR.x-8,KSR.y-10,KSR.w+16,KSR.h+PKUP.h+32,8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#7c2d12'; ctx.beginPath(); ctx.roundRect(KSR.x,KSR.y,KSR.w,KSR.h,6); ctx.fill();
+    ctx.fillStyle='#c2410c'; ctx.beginPath(); ctx.roundRect(PKUP.x,PKUP.y,PKUP.w,PKUP.h,6); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('CASHIER',KSR.x+36,KSR.y+90);
+    ctx.fillText('PICK-UP',PKUP.x+36,PKUP.y+24);
+    for(let b=0;b<BARISTA;b++){
+      const bx=KSR.x+KSR.w+22, by=KSR.y+28+b*54;
+      ctx.fillStyle='#fef3c7'; ctx.strokeStyle='#d97706'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.ellipse(bx,by,32,20,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#78350f'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='center';
+      ctx.textBaseline='middle'; ctx.fillText('Barista '+(b+1),bx,by); ctx.textBaseline='alphabetic';
+    }
+
+    ctx.fillStyle='#e2e8f0'; ctx.strokeStyle='#64748b'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(TG1.x,TG1.y,TG1.w,TG1.h,6); ctx.fill(); ctx.stroke();
+    for(let s=0;s<8;s++){
+      ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(TG1.x+22+s*38,TG1.y+5); ctx.lineTo(TG1.x+22+s*38,TG1.y+TG1.h-5); ctx.stroke();
+    }
+    ctx.fillStyle='#334155'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('STAIRS TO 2nd FLOOR',TG1.x+TG1.w/2,TG1.y+26);
+
+    ctx.fillStyle='#e2e8f0'; ctx.strokeStyle='#64748b'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(TG2.x,TG2.y,TG2.w,TG2.h,6); ctx.fill(); ctx.stroke();
+    for(let s=0;s<7;s++){
+      ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(TG2.x+22+s*38,TG2.y+5); ctx.lineTo(TG2.x+22+s*38,TG2.y+TG2.h-5); ctx.stroke();
+    }
+    ctx.fillStyle='#334155'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('STAIRS TO 1st FLOOR',TG2.x+TG2.w/2,TG2.y+26);
+
+    ctx.strokeStyle='#4ade80'; ctx.lineWidth=2; ctx.setLineDash([10,6]);
+    ctx.beginPath(); ctx.moveTo(DX+2,OY); ctx.lineTo(W,OY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#15803d'; ctx.textAlign='left'; ctx.font='11px Segoe UI';
+    ctx.fillText('OUTDOOR AREA',DX+12,OY-7);
+
+    ctx.fillStyle='#475569'; ctx.fillRect(P2.x,P2.y,48,11);
+    ctx.fillStyle='#0f172a'; ctx.font='10px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('DOOR',P2.x+24,P2.y+25);
+  }
+
+  function drawTables(){
+    allTables.forEach(t => {
+      ctx.fillStyle='#fef3c7'; ctx.strokeStyle='#d97706'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.roundRect(t.ref.x, t.ref.y, 30, 30, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#92400e'; ctx.font='bold 8px Segoe UI';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('T'+t.id, t.ref.x+15, t.ref.y+15); ctx.textBaseline='alphabetic';
+      
+      t.seats.forEach(s => {
+        ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI*2);
+        ctx.fillStyle=s.taken?'#ef4444':'#22c55e'; ctx.fill();
+        ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+      });
+    });
+  }
+
+  function loop(){
+    ctx.clearRect(0,0,W,H);
+    drawBG(); drawTables();
+
+    if(--spawnT<=0){
+      const c=new Cust(++nextId);
+      customers.push(c); 
+      spawnT=Math.floor(Math.random()*(LAJU*0.6))+Math.floor(LAJU*0.4);
+    }
+    for(let i=customers.length-1;i>=0;i--){
+      if(customers[i].upd()) customers.splice(i,1);
+      else customers[i].draw();
+    }
+
+    let l1=0, l2=0, tot=0;
+    allTables.forEach(t => {
+      t.seats.forEach(s => {
+        tot++;
+        if (s.taken) {
+          if (t.floor === 1) l1++;
+          else l2++;
+        }
+      });
+    });
+
+    const pct=tot>0?Math.round((l1+l2)/tot*100):0;
+    ctx.fillStyle='rgba(15,23,42,0.9)'; ctx.fillRect(0,H-28,W,28);
+    ctx.fillStyle='#e2e8f0'; ctx.font='12px Segoe UI'; ctx.textAlign='left';
+    ctx.fillText(
+      `  Aktif: ${customers.length}  |  Antri kasir: ${kasirQ.length}  |  `+
+      `Pick-up: ${pickupQ.length}  |  `+
+      `Terisi — Lt.1: ${l1}  Lt.2: ${l2}  (${pct}% dari ${tot} kursi)  |  `+
+      `🛑 Loss Customer (Meja Penuh): ${lossCustomer}`,
+      0,H-10
+    );
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+})();
+</script>
+</body>
+</html>
