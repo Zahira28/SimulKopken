@@ -49,23 +49,19 @@ html_code = f"""
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Share+Tech+Mono&display=swap');
 
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08; padding: 0; overflow-x: hidden; }}
+body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08; padding: 5px; }}
 
-#app {{ display: flex; flex-direction: column; width: 100%; padding: 15px 15px 15px 15px; }}
+#app {{ display: flex; flex-direction: column; width: 100%; }}
 
 #hdr {{
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9999;
+  position: sticky;
+  top: 5px;
+  z-index: 1000;
   background: #1C0F08; height: 56px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 20px; border-radius: 0 0 12px 12px; margin-bottom: 16px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  padding: 0 20px; border-radius: 12px; margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }}
-
-#app > *:not(#hdr) {{ margin-top: 72px; }}
 #hdr-title-panel {{ display: flex; align-items: center; gap: 10px; }}
 #hdr-title {{ font-size: 15px; color: #E8D5BE; font-weight: 600; letter-spacing: 0.5px; }}
 #hdr-sub {{ font-size: 10px; color: #7A4A2E; text-transform: uppercase; letter-spacing: 1px; }}
