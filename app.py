@@ -988,7 +988,7 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### Legend — Agent Types")
 st.sidebar.markdown(
     '''
-    <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;flex-direction:column;gap:6px; color:#1C0F08;">
       <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#6B8F71;margin-right:8px;vertical-align:middle;"></span><strong>D</strong> — Driver</div>
       <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#03cffc;margin-right:8px;vertical-align:middle;"></span><strong>M</strong> — Male</div>
       <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#d672a7;margin-right:8px;vertical-align:middle;"></span><strong>F</strong> — Female</div>
@@ -999,7 +999,7 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### Legend — Seats")
 st.sidebar.markdown(
     '''
-    <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;flex-direction:column;gap:6px; color:#1C0F08;">
       <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#A3C47C;margin-right:8px;vertical-align:middle;"></span>Available</div>
       <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#F59E0B;margin-right:8px;vertical-align:middle;"></span>Reserved</div>
       <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#C0392B;margin-right:8px;vertical-align:middle;"></span>Occupied</div>
