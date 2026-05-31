@@ -185,6 +185,30 @@ body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08;
 #wu-detail {{ font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #C8956C; margin-top: 4px; }}
 #wu-bar-wrap {{ margin-top: 12px; width: 240px; height: 5px; background: #3D2314; border-radius: 3px; overflow: hidden; }}
 #wu-bar {{ height: 100%; width: 0%; background: #C8956C; border-radius: 3px; transition: width 0.05s; }}
+
+/* UI MOBILE */
+@media (max-width: 768px) {{
+  #hdr-sub {{ display: none !important; }}
+  #hdr-title {{ font-size: 14px !important; white-space: nowrap; }}
+  #hdr {{ 
+    height: auto !important; 
+    flex-direction: column; 
+    align-items: flex-start; 
+    padding: 12px; gap: 10px; 
+  }}
+  #hdr-right {{ width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }}
+  
+  #metrics, #mid-row {{ flex-direction: column !important; }}
+  .mcard, #occ-panel, #event-panel {{ 
+    width: 100% !important; 
+    min-width: 100% !important; 
+    flex: none !important; 
+  }}
+  
+  #canvas-header {{ flex-direction: column; align-items: flex-start; gap: 8px; }}
+  #speed-row {{ width: 100%; justify-content: space-between; }}
+  .spd-btn {{ flex: 1; text-align: center; }}
+}}
 </style>
 </head>
 <body>
