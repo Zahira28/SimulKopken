@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Simulasi Kopi Kenangan Kaliurang", layout="wide")
 
@@ -22,6 +21,26 @@ body, .stApp {
     border: 1px solid #E8D5BE !important;
     border-radius: 9px !important;
 }
+.stSelectbox > div > div:hover,
+.stSelectbox > div > div:focus-within,
+div[data-baseweb="select"] > div:hover,
+div[data-baseweb="select"] > div:focus-within {
+  background-color: #EFE0C9 !important;
+  border-color: #C9B08E !important;
+}
+.stSelectbox [role="option"]:hover,
+div[role="option"]:hover {
+  background-color: #E6D0B1 !important;
+  color: #1C0F08 !important;
+}
+.stSelectbox input,
+.stSelectbox textarea {
+  caret-color: transparent !important;
+}
+.stSelectbox input::selection,
+.stSelectbox textarea::selection {
+  background: transparent !important;
+}
 h1, h2, h3 {
     font-family: 'Playfair Display', serif !important;
     color: #1C0F08 !important;
@@ -32,13 +51,24 @@ div[data-testid="stMarkdownContainer"] p {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("☕ Simulasi Kopi Kenangan Kaliurang")
-st.markdown("Visualisasi pergerakan agen berbasis fisika stokastik menggunakan data observasi empiris.")
+st.title("☕ Kopi Kenangan Kaliurang Simulation")
+st.markdown("Visualization of agent movement using stochastic physics based on empirical observation data.")
 
-st.sidebar.header("⚙️ Skenario Observasi")
-hari = st.sidebar.selectbox("📅 Jenis Hari", ["Weekday", "Weekend"])
-waktu = st.sidebar.selectbox("⏰ Shift Waktu", ["Pagi (09.00–12.00)", "Siang (12.00–15.00)", "Sore (15.00–18.00)", "Malam (18.00–20.00)"])
-shift_key = waktu.split()[0]
+st.sidebar.header("Scenario Settings")
+hari = st.sidebar.selectbox("Day Type", ["Weekday", "Weekend"], index=0)
+waktu = st.sidebar.selectbox(
+  "Time Shift",
+  ["Morning (09:00–12:00)", "Afternoon (12:00–15:00)", "Evening (15:00–18:00)", "Night (18:00–20:00)"],
+  index=0,
+  accept_new_options=False,
+)
+shift_key_map = {
+  "Morning (09:00–12:00)": "Morning",
+  "Afternoon (12:00–15:00)": "Afternoon",
+  "Evening (15:00–18:00)": "Evening",
+  "Night (18:00–20:00)": "Night",
+}
+shift_key = shift_key_map[waktu]
 
 html_code = f"""
 <!DOCTYPE html>
@@ -51,12 +81,19 @@ html_code = f"""
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08; padding: 5px; }}
 
-#app {{ display: flex; flex-direction: column; width: 100%; }}
+#app {{
+  display: flex; flex-direction: column; width: 100%;
+  padding-top: 80px;
+  height: 100%;
+  overflow: auto;
+}}
 
 #hdr {{
-  position: sticky;
+  position: fixed;
   top: 5px;
-  z-index: 1000;
+  left: 5px;
+  right: 5px;
+  z-index: 10000;
   background: #1C0F08; height: 56px;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 20px; border-radius: 12px; margin-bottom: 16px;
@@ -170,68 +207,68 @@ body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08;
         <div id="hdr-shift">{shift_key} · {hari}</div>
       </div>
       <div style="display:flex; gap:6px">
-        <button class="hbtn hbtn-primary" id="btn-start" onclick="simStart()">▶ Mulai</button>
-        <button class="hbtn hbtn-pause" id="btn-pause" onclick="simPause()" style="display:none">⏸ Jeda</button>
+        <button class="hbtn hbtn-primary" id="btn-start" onclick="simStart()">▶ Start</button>
+        <button class="hbtn hbtn-pause" id="btn-pause" onclick="simPause()" style="display:none">⏸ Pause</button>
       </div>
     </div>
   </header>
 
   <div id="metrics">
     <div class="mcard">
-      <div class="mcard-header"><span class="mcard-lbl">Pelanggan Aktif</span><span class="mcard-icon">👥</span></div>
+      <div class="mcard-header"><span class="mcard-lbl">Active Customers</span><span class="mcard-icon">👥</span></div>
       <div class="mcard-val" id="m-active">0</div>
-      <div class="mcard-sub">di dalam kafe</div>
+      <div class="mcard-sub">inside the cafe</div>
       <div class="mbar"><div class="mbar-fill" id="mb-active" style="background:#A86B3C"></div></div>
     </div>
     <div class="mcard">
-      <div class="mcard-header"><span class="mcard-lbl">Antrian Kasir</span><span class="mcard-icon">🧾</span></div>
+      <div class="mcard-header"><span class="mcard-lbl">Cashier Queue</span><span class="mcard-icon">🧾</span></div>
       <div class="mcard-val" id="m-queue">0</div>
-      <div class="mcard-sub">antri memesan</div>
+      <div class="mcard-sub">waiting to order</div>
       <div class="mbar"><div class="mbar-fill" id="mb-queue" style="background:#D4844A"></div></div>
     </div>
     <div class="mcard">
-      <div class="mcard-header"><span class="mcard-lbl">Dilayani (Total)</span><span class="mcard-icon">✓</span></div>
+      <div class="mcard-header"><span class="mcard-lbl">Served (Total)</span><span class="mcard-icon">✓</span></div>
       <div class="mcard-val" id="m-served">0</div>
-      <div class="mcard-sub">berhasil transaksi</div>
+      <div class="mcard-sub">successful transactions</div>
       <div class="mbar"><div class="mbar-fill" id="mb-served" style="background:#6B8F71"></div></div>
     </div>
     <div class="mcard">
       <div class="mcard-header"><span class="mcard-lbl">Loss (Balking)</span><span class="mcard-icon">↗</span></div>
       <div class="mcard-val" id="m-loss">0</div>
-      <div class="mcard-sub">pergi karena padat</div>
+      <div class="mcard-sub">left because it was crowded</div>
       <div class="mbar"><div class="mbar-fill" id="mb-loss" style="background:#C4847A"></div></div>
     </div>
   </div>
 
   <div id="mid-row">
     <div id="occ-panel">
-      <div class="panel-title">Tingkat Hunian Kursi Real-Time</div>
+      <div class="panel-title">Real-Time Seat Occupancy</div>
       <div class="occ-row">
-        <div class="occ-top"><span class="occ-lbl">Lantai 1 — Indoor</span><span class="occ-pct" id="op1" style="color:#A86B3C">0%</span></div>
+        <div class="occ-top"><span class="occ-lbl">Floor 1 — Indoor</span><span class="occ-pct" id="op1" style="color:#A86B3C">0%</span></div>
         <div class="occ-bar"><div class="occ-fill" id="ob1" style="background:#A86B3C"></div></div>
-        <div class="occ-sub" id="os1">0 / 44 kursi</div>
+        <div class="occ-sub" id="os1">0 / 44 seats</div>
       </div>
       <div class="occ-row">
-        <div class="occ-top"><span class="occ-lbl">Lantai 2 — Indoor</span><span class="occ-pct" id="op2" style="color:#D4844A">0%</span></div>
+        <div class="occ-top"><span class="occ-lbl">Floor 2 — Indoor</span><span class="occ-pct" id="op2" style="color:#D4844A">0%</span></div>
         <div class="occ-bar"><div class="occ-fill" id="ob2" style="background:#D4844A"></div></div>
-        <div class="occ-sub" id="os2">0 / 42 kursi</div>
+        <div class="occ-sub" id="os2">0 / 42 seats</div>
       </div>
       <div class="occ-row">
-        <div class="occ-top"><span class="occ-lbl">Lantai 2 — Outdoor</span><span class="occ-pct" id="op3" style="color:#6B8F71">0%</span></div>
+        <div class="occ-top"><span class="occ-lbl">Floor 2 — Outdoor</span><span class="occ-pct" id="op3" style="color:#6B8F71">0%</span></div>
         <div class="occ-bar"><div class="occ-fill" id="ob3" style="background:#6B8F71"></div></div>
-        <div class="occ-sub" id="os3">0 / 32 kursi</div>
+        <div class="occ-sub" id="os3">0 / 32 seats</div>
       </div>
       <div class="occ-total">
-        <div class="occ-total-lbl">Total Utilitas Kursi (Kapasitas Maksimal Kafe)</div>
+        <div class="occ-total-lbl">Total Seat Utilization (Maximum Cafe Capacity)</div>
         <div class="occ-total-val" id="occ-total-pct">0%</div>
       </div>
     </div>
 
     <div id="event-panel">
-      <div class="panel-title">Log Kejadian Aktivitas Agen</div>
-      <div id="event-log"><div class="event-empty">Klik Mulai untuk memicu pemodelan log stokastik...</div></div>
+      <div class="panel-title">Agent Activity Event Log</div>
+      <div id="event-log"><div class="event-empty">Click Start to trigger the stochastic event log...</div></div>
       <div class="barista-row">
-        <div class="barista-lbl">Jumlah Barista Aktif Berjaga:</div>
+        <div class="barista-lbl">Active Baristas on Duty:</div>
         <div class="barista-icons" id="barista-icons"></div>
       </div>
     </div>
@@ -240,11 +277,11 @@ body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08;
   <div id="canvas-panel">
     <div id="canvas-header">
       <div>
-        <div id="canvas-title">Tata Letak & Pergerakan Spasial</div>
-        <div id="canvas-sub">Denah 2D lantai 1 dan lantai 2 terintegrasi</div>
+        <div id="canvas-title">Spatial Layout & Movement</div>
+        <div id="canvas-sub">Integrated 2D floor 1 and floor 2 map</div>
       </div>
       <div id="speed-row">
-        <span id="speed-lbl">Akselerasi:</span>
+        <span id="speed-lbl">Speed:</span>
         <button class="spd-btn active" onclick="setSpeed(1,this)">1×</button>
         <button class="spd-btn" onclick="setSpeed(2,this)">2×</button>
         <button class="spd-btn" onclick="setSpeed(3,this)">3×</button>
@@ -255,8 +292,8 @@ body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08;
     <div id="canvas-wrap">
       <canvas id="c" width="1160" height="800"></canvas>
       <div id="warmup-ov">
-        <div id="wu-title">⚙️ MENYIAPKAN KONDISI AWAL KAFE...</div>
-        <div id="wu-sub">Fast-forwarding spasial ke jam operasional skenario terpilih</div>
+        <div id="wu-title">⚙️ PREPARING INITIAL CAFE CONDITIONS...</div>
+        <div id="wu-sub">Fast-forwarding spatially to the selected operating hours</div>
         <div id="wu-detail"></div>
         <div id="wu-bar-wrap"><div id="wu-bar"></div></div>
       </div>
@@ -278,8 +315,8 @@ const ctx = cv.getContext('2d');
 const W = 1160, H = 800;
 
 const FPS = 60;
-const FRAMES_PER_SIM_MINUTE = 120; // 1 menit simulasi = 120 frame -> 1 menit nyata = 30 menit simulasi
-const COLAB_FRAME_RATE = 30; // Rasio frame asli dari data gcolab
+const FRAMES_PER_SIM_MINUTE = 120;
+const COLAB_FRAME_RATE = 30;
 
 const C = {{
   bg1:'#1C0D05', bg2:'#221005', bgOut:'#182608',
@@ -290,7 +327,7 @@ const C = {{
   stair:'#2A1508', stairStroke:'#6C4E31', stairText:'#FFDBB5',
   door:'#6C4E31', doorText:'#FFEAC5',
   outdoorLine:'#4CAF50', outdoorText:'#A3C47C',
-  custM:'#4caf9a', custF:'#d672a7', custD:'#6B8F71', custShadow:'rgba(0,0,0,0.4)'
+  custM:'#03cffc', custF:'#d672a7', custD:'#6B8F71', custShadow:'rgba(0,0,0,0.4)'
 }};
 
 const KASIR_MENIT_MIN = 0.2, KASIR_MENIT_MAX = 3.0;
@@ -314,16 +351,16 @@ const CONFIG_PROB_HARI = {{
 
 const PETA_KERAMAIAN = {{
   "Weekday": {{
-    "Pagi":  {{laju:159, durasiMin:60,  durasiMax:660, mulai:9,  selesai:12}},
-    "Siang": {{laju:159, durasiMin:90,  durasiMax:480, mulai:12, selesai:15}},
-    "Sore":  {{laju:150, durasiMin:90,  durasiMax:300, mulai:15, selesai:18}},
-    "Malam": {{laju:168, durasiMin:60,  durasiMax:240, mulai:18, selesai:20}}
+    "Morning":  {{laju:159, durasiMin:60,  durasiMax:660, mulai:9,  selesai:12}},
+    "Afternoon": {{laju:159, durasiMin:90,  durasiMax:480, mulai:12, selesai:15}},
+    "Evening":  {{laju:150, durasiMin:90,  durasiMax:300, mulai:15, selesai:18}},
+    "Night": {{laju:168, durasiMin:60,  durasiMax:240, mulai:18, selesai:20}}
   }},
   "Weekend": {{
-    "Pagi":  {{laju:127, durasiMin:120, durasiMax:660, mulai:9,  selesai:12}},
-    "Siang": {{laju:115, durasiMin:120, durasiMax:480, mulai:12, selesai:15}},
-    "Sore":  {{laju:176, durasiMin:120, durasiMax:300, mulai:15, selesai:18}},
-    "Malam": {{laju:112, durasiMin:120, durasiMax:240, mulai:18, selesai:20}}
+    "Morning":  {{laju:127, durasiMin:120, durasiMax:660, mulai:9,  selesai:12}},
+    "Afternoon": {{laju:115, durasiMin:120, durasiMax:480, mulai:12, selesai:15}},
+    "Evening":  {{laju:176, durasiMin:120, durasiMax:300, mulai:15, selesai:18}},
+    "Night": {{laju:112, durasiMin:120, durasiMax:240, mulai:18, selesai:20}}
   }}
 }};
 
@@ -388,7 +425,6 @@ function initSimState() {{
   LAJU = currentConfig.laju;
   BARISTA = hitungJumlahBarista(HARI_AKTIF, 9);
   
-  // Konversi LAJU (frame colab) -> Menit -> Frame JS
   let lajuMenit = LAJU / COLAB_FRAME_RATE;
   spawnT = menitKeFrame(lajuMenit * (0.6 + Math.random() * 0.8));
   
@@ -409,10 +445,10 @@ function initSimState() {{
 
 function getConfigAktif(jam){{
   const d=PETA_KERAMAIAN[HARI_AKTIF];
-  if(jam>=9&&jam<12) return {{key:"Pagi",...d["Pagi"]}};
-  if(jam>=12&&jam<15) return {{key:"Siang",...d["Siang"]}};
-  if(jam>=15&&jam<18) return {{key:"Sore",...d["Sore"]}};
-  return {{key:"Malam",...d["Malam"]}};
+  if(jam>=9&&jam<12) return {{key:"Morning",...d["Morning"]}};
+  if(jam>=12&&jam<15) return {{key:"Afternoon",...d["Afternoon"]}};
+  if(jam>=15&&jam<18) return {{key:"Evening",...d["Evening"]}};
+  return {{key:"Night",...d["Night"]}};
 }}
 
 function hitungJumlahBarista(hari, jam) {{
@@ -428,12 +464,11 @@ function hitungJumlahBarista(hari, jam) {{
 
 function isFree(s){{return !s.taken&&!s.reserved;}}
 
-// Logika Pemotong Durasi Duduk agar tidak melewati jam 20:00 (Live Spawning)
 function buatTimerDuduk(cfg) {{
   let durasi = cfg.durasiMin + Math.random()*(cfg.durasiMax-cfg.durasiMin);
   const totalMenitSim = totalFrameSimulasi / FRAMES_PER_SIM_MINUTE;
   const waktuSkrgMenit = (jamMulaiSimulasi * 60) + totalMenitSim;
-  const waktuTutupMenit = 20 * 60; // Jam 20:00
+  const waktuTutupMenit = 20 * 60;
   
   const sisaWaktuBuka = waktuTutupMenit - waktuSkrgMenit;
   if (durasi > sisaWaktuBuka) {{
@@ -614,7 +649,7 @@ function addEvent(type) {{
   const jam = jamMulaiSimulasi + Math.floor(totalMenitSim / 60);
   const min = Math.floor(totalMenitSim % 60);
   const t = String(jam).padStart(2,'0')+':'+String(min).padStart(2,'0');
-  const msgs = {{served:'Pelanggan selesai dilayani', balking:'Pelanggan pergi (balking)', arrival:'Pelanggan tiba'}};
+  const msgs = {{served:'Customer served', balking:'Customer left (balking)', arrival:'Customer arrived'}};
   const colors = {{served:'#6B8F71', balking:'#C4847A', arrival:'#A86B3C'}};
   eventLog.unshift({{msg: msgs[type]||type, t, color: colors[type]||'#A86B3C'}});
   if (eventLog.length > 12) eventLog.pop();
@@ -624,17 +659,17 @@ function addEvent(type) {{
 function renderEventLog() {{
   const el = document.getElementById('event-log');
   if (!eventLog.length) {{
-    el.innerHTML = '<div class="event-empty">Klik Mulai untuk memicu pemodelan log stokastik...</div>';
+    el.innerHTML = '<div class="event-empty">Click Start to trigger the stochastic event log...</div>';
     return;
   }}
   let html = '';
   for (let i = 0; i < Math.min(eventLog.length, 6); i++) {{
     const e = eventLog[i];
-    html += '<div class="event-row">' +
-            '<span class="event-dot" style="background:' + e.color + '"></span>' +
-            '<span class="event-msg">' + e.msg + '</span>' +
-            '<span class="event-time">Jam ' + e.t + '</span>' +
-            '</div>';
+        html += '<div class="event-row">' +
+          '<span class="event-dot" style="background:' + e.color + '"></span>' +
+          '<span class="event-msg">' + e.msg + '</span>' +
+          '<span class="event-time">' + e.t + '</span>' +
+          '</div>';
   }}
   el.innerHTML = html;
 }}
@@ -652,7 +687,6 @@ function spawnGelombang_warmup() {{
   const kursi=alokasikanKursi('KELOMPOK',ukuranK,area);
   if(!kursi) return;
   
-  // Logika Pemotong Durasi Duduk agar tidak melewati jam 20:00 (Warmup Spawning)
   let timerMenit = currentConfig.durasiMin + Math.random()*(currentConfig.durasiMax-currentConfig.durasiMin);
   const jamSkrgWarmup = currentConfig.mulai;
   const waktuTutupMenit = 20 * 60;
@@ -839,11 +873,11 @@ function updateUI(jam,menit,l1,l2,tot) {{
   const p2o=Math.min(100,Math.round(l2out/SEATS_L2OUT*100));
   const pAll=Math.min(100,Math.round((l1+l2)/tot*100));
   document.getElementById('op1').textContent=p1+'%'; document.getElementById('ob1').style.width=p1+'%';
-  document.getElementById('os1').textContent=l1+' / '+SEATS_L1+' kursi';
+  document.getElementById('os1').textContent=l1+' / '+SEATS_L1+' seats';
   document.getElementById('op2').textContent=p2i+'%'; document.getElementById('ob2').style.width=p2i+'%';
-  document.getElementById('os2').textContent=l2in+' / '+SEATS_L2IN+' kursi';
+  document.getElementById('os2').textContent=l2in+' / '+SEATS_L2IN+' seats';
   document.getElementById('op3').textContent=p2o+'%'; document.getElementById('ob3').style.width=p2o+'%';
-  document.getElementById('os3').textContent=l2out+' / '+SEATS_L2OUT+' kursi';
+  document.getElementById('os3').textContent=l2out+' / '+SEATS_L2OUT+' seats';
   document.getElementById('occ-total-pct').textContent=pAll+'%';
   
   const bi=document.getElementById('barista-icons');
@@ -858,7 +892,6 @@ function loop() {{
     let jamSkrg = jamMulaiSimulasi + Math.floor(totalMenitSim / 60);
     let menitSkrg = Math.floor(totalMenitSim % 60);
     
-    // Reset Otomatis di Jam 20:00
     if(jamSkrg>=20){{
       totalFrameSimulasi=0; jamMulaiSimulasi=jamTarget;
       customers=[]; kasirQ=[]; pickupQ=[]; seatPopulation=[];
@@ -928,17 +961,26 @@ initSimState(); drawBG(); drawTables(); doWarmUp();
 </html>
 """
 
-components.html(html_code, height=1150, scrolling=False)
+st.iframe(html_code, height=700)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🔠 Legenda Identifikasi Agen")
-st.sidebar.markdown("🟢 **D** — Driver Ojol (Take-Away)")
-st.sidebar.markdown("🔵 **M** — Pelanggan Pria (Dine-In)")
-st.sidebar.markdown("🩷 **F** — Pelanggan Wanita (Dine-In)")
-st.sidebar.markdown("❓ **Scouting** — Mencari Kursi Kosong di Lt. 2")
+st.sidebar.markdown("### Legend — Agent Types")
+st.sidebar.markdown(
+    '''
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#6B8F71;margin-right:8px;vertical-align:middle;"></span><strong>D</strong> — Driver</div>
+      <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#03cffc;margin-right:8px;vertical-align:middle;"></span><strong>M</strong> — Male</div>
+      <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#d672a7;margin-right:8px;vertical-align:middle;"></span><strong>F</strong> — Female</div>
+    </div>
+    ''', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🪑 Legenda Kursi")
-st.sidebar.markdown("🟢 **Kosong** — Tersedia")
-st.sidebar.markdown("🟠 **Reserved** — Sedang dipesan pelanggan yang antre")
-st.sidebar.markdown("🔴 **Terisi** — Sedang diduduki pelanggan")
+st.sidebar.markdown("### Legend — Seats")
+st.sidebar.markdown(
+    '''
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#A3C47C;margin-right:8px;vertical-align:middle;"></span>Available</div>
+      <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#F59E0B;margin-right:8px;vertical-align:middle;"></span>Reserved</div>
+      <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#C0392B;margin-right:8px;vertical-align:middle;"></span>Occupied</div>
+    </div>
+    ''', unsafe_allow_html=True)
