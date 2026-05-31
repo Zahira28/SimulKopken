@@ -352,15 +352,15 @@ const CONFIG_PROB_HARI = {{
 const PETA_KERAMAIAN = {{
   "Weekday": {{
     "Morning":  {{laju:159, durasiMin:60,  durasiMax:660, mulai:9,  selesai:12}},
-    "Afternoon": {{laju:159, durasiMin:90,  durasiMax:480, mulai:12, selesai:15}},
-    "Evening":  {{laju:150, durasiMin:90,  durasiMax:300, mulai:15, selesai:18}},
-    "Night": {{laju:168, durasiMin:60,  durasiMax:240, mulai:18, selesai:20}}
+    "Afternoon": {{laju:159, durasiMin:90,  durasiMax:660, mulai:12, selesai:15}},
+    "Evening":  {{laju:150, durasiMin:90,  durasiMax:660, mulai:15, selesai:18}},
+    "Night": {{laju:168, durasiMin:60,  durasiMax:660, mulai:18, selesai:20}}
   }},
   "Weekend": {{
     "Morning":  {{laju:127, durasiMin:120, durasiMax:660, mulai:9,  selesai:12}},
-    "Afternoon": {{laju:115, durasiMin:120, durasiMax:480, mulai:12, selesai:15}},
-    "Evening":  {{laju:176, durasiMin:120, durasiMax:300, mulai:15, selesai:18}},
-    "Night": {{laju:112, durasiMin:120, durasiMax:240, mulai:18, selesai:20}}
+    "Afternoon": {{laju:115, durasiMin:120, durasiMax:660, mulai:12, selesai:15}},
+    "Evening":  {{laju:176, durasiMin:120, durasiMax:660, mulai:15, selesai:18}},
+    "Night": {{laju:112, durasiMin:120, durasiMax:660, mulai:18, selesai:20}}
   }}
 }};
 
@@ -583,7 +583,10 @@ class Cust {{
       if(pi===0&&ok){{
         if(--this.timerPickup<=0){{
           pickupQ.splice(0,1);
-          if(this.tipeK==='DRIVER'||this.isTakeAway){{served_total++;addEvent('served');this.st='LEAVE';}}
+          served_total++;
+          addEvent('served');
+          if(this.tipeK==='DRIVER'||this.isTakeAway){{
+            this.st='LEAVE';}}
           else{{
             this.assignedSeat.reserved=false;this.assignedSeat.taken=true;
             this.timer=this.timerDuduk;
@@ -605,7 +608,6 @@ class Cust {{
     else if(this.st==='TO_S2'){{if(this.mv(this.assignedSeat.x,this.assignedSeat.y))this.st='SIT';}}
     else if(this.st==='SIT'){{
       if(--this.timer<=0){{
-        served_total++;addEvent('served');
         const m=allTables.find(t=>t.seats.includes(this.assignedSeat));
         this.st=m&&m.floor===1?'LEAVE':'LEAVE_OUTDOOR_CHECK';
       }}
@@ -725,9 +727,13 @@ function spawnGelombangLive() {{
   addEvent('arrival');
 }}
 
-function doWarmUp() {{
+function doWarmUp(autoResume = false) {{
   const ov=document.getElementById('warmup-ov');
-  if(jamTarget<=9){{ov.style.display='none';return;}}
+  if(jamTarget<=9){{
+    ov.style.display='none';
+    if(autoResume) simStart();
+    return;
+  }}
   const selisihMenit=(jamTarget-9)*60;
   const bar=document.getElementById('wu-bar');
   const detail=document.getElementById('wu-detail');
@@ -781,7 +787,10 @@ function doWarmUp() {{
       spawnT = menitKeFrame(lajuMenit * (0.6 + Math.random() * 0.8));
       
       ov.style.transition='opacity .4s';ov.style.opacity='0';
-      setTimeout(()=>{{ov.style.display='none';}},400);
+      setTimeout(()=>{{
+        ov.style.display='none';
+        if(autoResume) simStart();
+      }},400);
     }}
   }}
   tick();
@@ -893,15 +902,27 @@ function loop() {{
     let menitSkrg = Math.floor(totalMenitSim % 60);
     
     if(jamSkrg>=20){{
-      totalFrameSimulasi=0; jamMulaiSimulasi=jamTarget;
+      simRunning = false;
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      
+      totalFrameSimulasi = 0; 
+      jamMulaiSimulasi = 9; 
+      
       customers=[]; kasirQ=[]; pickupQ=[]; seatPopulation=[];
       allTables.forEach(t=>t.seats.forEach(s=>{{s.taken=false;s.reserved=false;}}));
-      jamSkrg = jamTarget;
-      
       served_total = 0;
       lossCustomer = 0;
       eventLog = [];
       renderEventLog();
+      
+      document.getElementById('btn-start').style.display = 'flex';
+      document.getElementById('btn-pause').style.display = 'none';
+      document.querySelector('.live-badge').style.background = 'rgba(196,132,122,0.15)';
+      document.getElementById('live-label').textContent = 'RESETTING...';
+
+      doWarmUp(true);
+      return; 
     }}
     
     currentConfig=getConfigAktif(jamSkrg);
