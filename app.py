@@ -275,7 +275,7 @@ body {{ font-family: 'DM Sans', sans-serif; background: #FAF4EC; color: #1C0F08;
       <div class="occ-row">
         <div class="occ-top"><span class="occ-lbl">Floor 2 — Indoor</span><span class="occ-pct" id="op2" style="color:#D4844A">0%</span></div>
         <div class="occ-bar"><div class="occ-fill" id="ob2" style="background:#D4844A"></div></div>
-        <div class="occ-sub" id="os2">0 / 42 seats</div>
+        <div class="occ-sub" id="os2">0 / 48 seats</div>
       </div>
       <div class="occ-row">
         <div class="occ-top"><span class="occ-lbl">Floor 2 — Outdoor</span><span class="occ-pct" id="op3" style="color:#6B8F71">0%</span></div>
@@ -895,7 +895,7 @@ function updateUI(jam,menit,l1,l2,tot) {{
   document.getElementById('mb-served').style.width=Math.min(100,(served_total/Math.max(1,served_total+lossCustomer))*100)+'%';
   document.getElementById('m-loss').textContent=lossCustomer;
   document.getElementById('mb-loss').style.width=Math.min(100,lossCustomer*6)+'%';
-  const SEATS_L1=44, SEATS_L2IN=42, SEATS_L2OUT=32;
+  const SEATS_L1=44, SEATS_L2IN=48, SEATS_L2OUT=32;
   let l2in=0,l2out=0;
   allTables.filter(t=>t.floor===2).forEach(t=>{{
     const isOut=t.ref.y>=520;
